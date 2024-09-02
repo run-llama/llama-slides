@@ -385,6 +385,11 @@ export default function Home() {
                   padding: '10px', 
                   zIndex: 10 
                 }}>
+                  {activeNoteIndex === index && (
+                    <div className="speakerNotesPopup">
+                      {intermediate?.children[index].speakerNotes}
+                    </div>
+                  )}
                   <button onClick={() => setActiveNoteIndex(activeNoteIndex === index ? null : index)}>
                     {activeNoteIndex === index ? "Hide Notes" : "Show Notes"}
                   </button>
@@ -402,11 +407,6 @@ export default function Home() {
                   >
                     Clean up
                   </button>
-                  {activeNoteIndex === index && (
-                    <div className="speakerNotesPopup">
-                      {intermediate?.children[index].speakerNotes}
-                    </div>
-                  )}
                 </div>
               </div>
             })}
