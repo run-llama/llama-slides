@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import crypto from 'crypto';
 import {
   Presentation, Slide, Text,
@@ -11,7 +11,93 @@ import pptxgen from "pptxgenjs";
 import html2canvas from "html2canvas";
 
 export default function Home() {
-  const [rawText, setRawText] = useState("");
+  const [rawText, setRawText] = useState(`RAG and Agents in 2024
+======================
+Only the title of the first slide is used
+So anything after that is ignored.
+So I've put some instructions in here that only humans will see.
+Slides are separated by 2 breaklines.
+A slide has a title denoted by #
+Lines beginning with > are included after the title, verbatim.
+
+# Who is this guy?
+Hi everybody!
+I'm Laurie Voss
+VP of developer relations at LlamaIndex
+In a former life I co-founded npm Inc
+So some of you may know me from then.
+These days instead of JavaScript
+I'm talking about AI
+
+# What are we talking about
+> What is LlamaIndex
+> What is RAG
+> Building RAG in LlamaIndex
+> Building Agentic RAG
+> Building agentic workflows
+Specifically today I'm going to be talking about RAG and agents
+RAG stands for Retrieval-Augmented Generation
+First I'll introduce you to LlamaIndex
+Then we'll cover the basics of RAG
+And how to build RAG in llamaindex
+Then we'll talk about why we need agents
+And how to build those in Llamaindex, too.
+And finally we'll talk about workflows
+the latest feature of llamaindex
+released just 4 days ago.
+
+# What is LlamaIndex
+> docs.llamaindex.ai
+> ts.llamaindex.ai
+So what is LlamaIndex?
+It's a bunch of things.
+Start with the most obvious: we are a framework
+in both python and typescript
+that helps you build generative AI applications.
+The Python framework is older and bigger
+the typescript framework is growing fast.
+Both are obviously open source and free to use.
+But that's not all we do.
+
+# LlamaParse
+> cloud.llamaindex.ai
+LlamaParse is a service from LlamaIndex
+that will parse complicated documents in any format
+into a form that can be understood by an LLM.
+This is critical for lots of gen AI applications
+because if your LLM can't understand what it's reading
+you'll get nonsense results.
+LlamaParse is also free to use for 1000 pages/day
+So it's easy to try out.
+
+# LlamaCloud
+Then there's LlamaCloud, our enterprise service.
+If what you want to do is stuff documents in one end
+and run retrieval-augmented generation on the other end
+without having to think about the stuff in the middle
+this is the service for you.
+Think of it as LlamaIndex building a LlamaIndex app for you.
+We're currently in early previews of the service
+but you can sign up for our waitlist.
+
+# LlamaHub
+Then there's LlamaHub, our registry of helper software.
+Need to connect to any database in the world? We gotchu.
+Want to get data out of notion, or slack, or salesforce? No problem.
+Need to store your data in a vector store? We support them all.
+Want to use OpenAI, Mistral, Anthropic, some other LLM?
+We support over 30 different LLMs including local ones like Llama 3.
+Want to build an agent and want some pre-built tools to do that?
+We have dozens of agent tools already built for you.
+
+# Why use llamaindex?
+Why should you use LlamaIndex?
+Because we will help you go faster.
+You're a developer, you have limited time
+you have actual business and technology problems to solve.
+Don't get stuck figuring out the basics.
+We've solved a bunch of the foundational problems for you
+so you can focus on your actual business problems.`);
   const [rawTextSlides, setRawTextSlides] = useState<string[]>([]);
   const [instructions, setInstructions] = useState<string[]>([]);
   const [intermediate, setIntermediate] = useState<IntermediateType | undefined>(undefined);
@@ -19,6 +105,22 @@ export default function Home() {
   const [formatCache] = useState(new Map());
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [activeNoteIndex, setActiveNoteIndex] = useState<number | null>(null);
+  const apiKeyDialogRef = useRef<HTMLDialogElement>(null);
+  const [apiKey, setApiKey] = useState<string>("");
+
+  useEffect(() => {
+    const storedApiKey = localStorage.getItem("apiKey");
+    if (storedApiKey) setApiKey(storedApiKey);
+  }, []);
+
+  const handleSetApiKey = () => {
+    apiKeyDialogRef.current?.showModal();
+  };
+
+  const saveApiKey = () => {
+    localStorage.setItem("apiKey", apiKey);
+    apiKeyDialogRef.current?.close();
+  };
 
   const hashContent = (content: string): string => {
     return crypto.createHash('md5').update(content).digest('hex');
@@ -87,7 +189,7 @@ export default function Home() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ content, formattingInstructions }),
+      body: JSON.stringify({ content, formattingInstructions, apiKey }),
     });
 
     if (!response.ok) {
@@ -269,6 +371,7 @@ export default function Home() {
   }
 
   const generatePreviews = async () => {
+
     let waitPresentations: JSX.Element[] = [
       <Presentation key="waiting">
         <Slide>
@@ -281,7 +384,6 @@ export default function Home() {
     ];
     setPresentationPreviews(waitPresentations); // waiting state
 
-    // FIXME: if the raw text has changed we should re-generate the raw slides
     let sourceTextSlides = rawTextSlides
     if (sourceTextSlides.length === 0) {
       sourceTextSlides = rawText.split("\n\n");
@@ -323,6 +425,7 @@ export default function Home() {
     formData.append('screenshot', pngFile);
     formData.append('slideIndex', slideIndex.toString());
     formData.append('rawText', rawTextSlides[slideIndex])
+    formData.append('apiKey',apiKey)
 
     const response = await fetch("/api/cleanup", {
       method: "POST",
@@ -364,8 +467,9 @@ export default function Home() {
           ></textarea>
         </div>
         <div id="convertButton">
-          <button onClick={generatePreviews}>Slidify ➡️</button>
+          <button onClick={generatePreviews} disabled={!apiKey}>Slidify ➡️</button>
           <button onClick={generatePptx}>Download PPTX</button>
+          <button onClick={handleSetApiKey}>Set API key</button>
         </div>
         <div id="slides">
           {presentationPreviews ? (<div>
@@ -420,6 +524,20 @@ export default function Home() {
         <p>No slides to download</p>
         <form method="dialog">
           <button>Close</button>
+        </form>
+      </dialog>
+      <dialog id="apiKeyDialog" ref={apiKeyDialogRef}>
+        <h2>Set Anthropic API Key</h2>
+        <p>This is stored only in your browser's local storage.</p>
+        <input
+          type="text"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="Enter your API key"
+        />
+        <button onClick={saveApiKey}>Save</button>
+        <form method="dialog">
+          <button>Cancel</button>
         </form>
       </dialog>
     </main>

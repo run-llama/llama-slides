@@ -38,3 +38,48 @@
   margin-top: 5px;
   background-color: #f9f9f9;
 }
+
+#apiKeyDialog {
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
+}
+
+#apiKeyDialog h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.5em;
+  color: #333;
+}
+
+#apiKeyDialog input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+#apiKeyDialog button {
+  padding: 8px 16px;
+  margin-right: 10px;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+#apiKeyDialog button:hover {
+  background-color: #0056b3;
+}
+
+#apiKeyDialog button[type="submit"] {
+  background-color: #28a745;
+}
+
+#apiKeyDialog button[type="submit"]:hover {
+  background-color: #218838;
+}

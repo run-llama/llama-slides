@@ -3,10 +3,10 @@ import { Anthropic } from 'llamaindex';
 
 export async function POST(request) {
   try {
-    const { content, formattingInstructions } = await request.json();
+    const { content, formattingInstructions, apiKey } = await request.json();
 
     // Perform manipulation on the content here
-    const formattedContent = await manipulateContent(content,formattingInstructions);
+    const formattedContent = await manipulateContent(apiKey, content,formattingInstructions);
 
     return NextResponse.json({ formattedContent });
   } catch (error) {
@@ -15,10 +15,10 @@ export async function POST(request) {
   }
 }
 
-async function manipulateContent(content,formattingInstructions) {
+async function manipulateContent(apiKey,content,formattingInstructions) {
   const llm = new Anthropic({
     model: 'claude-3-5-sonnet',
-    apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey: apiKey,
   });
 
   console.log("Generating formatted slide from ", content)

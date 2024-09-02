@@ -8,9 +8,10 @@ export async function POST(request) {
     const screenshot = formData.get('screenshot');
     const slideIndex = formData.get('slideIndex');
     const rawText = formData.get('rawText');
+    const apiKey = formData.get('apiKey')
 
     // Perform manipulation on the content here
-    const recommendations = await manipulateContent(screenshot, slideIndex, rawText);
+    const recommendations = await manipulateContent(apiKey, screenshot, slideIndex, rawText);
 
     return NextResponse.json({ recommendations });
   } catch (error) {
@@ -20,11 +21,11 @@ export async function POST(request) {
 }
 
 // Function to analyze the screenshot
-async function analyzeScreenshot(screenshot,rawText) {
+async function analyzeScreenshot(apiKey,screenshot,rawText) {
 
   // Initialize the Anthropic API client
   const anthropicApi = new AnthropicApi({
-    apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey: apiKey,
   });
 
   // Convert the screenshot to base64
@@ -76,9 +77,9 @@ async function analyzeScreenshot(screenshot,rawText) {
 }
 
 
-async function manipulateContent(screenshot, slideIndex, rawText) {
+async function manipulateContent(apiKey,screenshot, slideIndex, rawText) {
 
   // get recommendations about what to do with the screenshot
-  let recommendations = analyzeScreenshot(screenshot,rawText)
+  let recommendations = analyzeScreenshot(apiKey,screenshot,rawText)
   return recommendations;
 }
