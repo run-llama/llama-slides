@@ -520,6 +520,9 @@ so you can focus on your actual business problems.`);
           </div>) : (<div>No slides to display</div>)}
         </div>
       </div>
+      <div>
+        A project by <a href="https://twitter.com/seldo">Laurie Voss</a>. It's <a href="https://github.com/run-llama/llama-slides">open-source</a>!
+      </div>
       <dialog ref={dialogRef}>
         <p>No slides to download</p>
         <form method="dialog">
