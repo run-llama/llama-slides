@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.1",
     "buble": "^0.20.0",
     "html2canvas": "^1.4.1",
     "llamaindex": "^0.5.20",

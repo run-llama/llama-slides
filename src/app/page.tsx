@@ -8,9 +8,12 @@ import {
 } from "react-pptx"
 import Preview from "react-pptx/preview";
 import pptxgen from "pptxgenjs";
+import html2canvas from "html2canvas";
 
 export default function Home() {
   const [rawText, setRawText] = useState("");
+  const [rawTextSlides, setRawTextSlides] = useState<string[]>([]);
+  const [instructions, setInstructions] = useState<string[]>([]);
   const [intermediate, setIntermediate] = useState<IntermediateType | undefined>(undefined);
   const [presentationPreviews, setPresentationPreviews] = useState<JSX.Element[] | null>(null);
   const [formatCache] = useState(new Map());
@@ -66,8 +69,14 @@ export default function Home() {
     a.click();
   }
 
-  const formatWithCache = useCallback(async (content: string) => {
-    const contentHash = hashContent(content);
+  const formatWithCache = useCallback(async (content: string, index: number) => {
+
+    let formattingInstructions = null
+    if (instructions[index]) {
+      formattingInstructions = instructions[index]
+    }
+
+    const contentHash = hashContent(content+formattingInstructions);
 
     if (formatCache.has(contentHash)) {
       return formatCache.get(contentHash);
@@ -78,7 +87,7 @@ export default function Home() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, formattingInstructions }),
     });
 
     if (!response.ok) {
@@ -91,11 +100,14 @@ export default function Home() {
     return formattedContent;
   }, [formatCache]);
 
-  const generateIntermediateRepresentation = async () => {
+  const generateIntermediateRepresentation = async (overrideRawTextSlides: string[] | null = null) => {
 
-    let rawTextSlides = rawText.split("\n\n");
+    let sourceTextSlides = rawTextSlides
+    if (overrideRawTextSlides) {
+      sourceTextSlides = overrideRawTextSlides
+    }
 
-    let slides = await Promise.all(rawTextSlides.map(async (slideText, index) => {
+    let slides = await Promise.all(sourceTextSlides.map(async (slideText, index) => {
       /* the whole slide is 10 inches wide by 5.6 inches high */
       let firstline = slideText.split("\n")[0];
 
@@ -125,8 +137,8 @@ export default function Home() {
       }
 
       // all other slides follow the same format
-      let formattedContent = await formatWithCache(slideText);
-      console.log("Formatted content: ", formattedContent)
+      let formattedContent = await formatWithCache(slideText,index);
+      console.log(`Formatted content: for slide ${index}:`, formattedContent)
 
       let slide: Slide = {
         type: "slide",
@@ -184,45 +196,47 @@ export default function Home() {
       })
       slide.speakerNotes = speakerNotes
 
-      // subsequent lines are mostly bullet points
-      slide.children = slide.children.concat(formattedContent.split("\n").map((line: string, index: number) => {
-        console.log("Line: ", line)
-        if (line.startsWith("- ")) {
-          return {
-            type: "text.bullet",
-            style: {
-              x: 1,
-              y: yPosition += 0.5,
-              w: 8,
-              h: 1,
-              fontSize: 20
-            },
-            children: [
-              {
-                type: "string",
-                content: line.slice(2)
-              }
-            ]
+      if (formattedContent != "NO_EXTRA_CONTENT") {
+        // subsequent lines are mostly bullet points
+        slide.children = slide.children.concat(formattedContent.split("\n").map((line: string, index: number) => {
+          //console.log("Line: ", line)
+          if (line.startsWith("- ")) {
+            return {
+              type: "text.bullet",
+              style: {
+                x: 1,
+                y: yPosition += 0.5,
+                w: 8,
+                h: 1,
+                fontSize: 20
+              },
+              children: [
+                {
+                  type: "string",
+                  content: line.slice(2)
+                }
+              ]
+            }
+          } else {
+            return {
+              type: "text",
+              style: {
+                x: 1,
+                y: yPosition += 0.5,
+                w: 8,
+                h: 1,
+                fontSize: 20
+              },
+              children: [
+                {
+                  type: "string",
+                  content: line
+                }
+              ]
+            }
           }
-        } else {
-          return {
-            type: "text",
-            style: {
-              x: 1,
-              y: yPosition += 0.5,
-              w: 8,
-              h: 1,
-              fontSize: 20
-            },
-            children: [
-              {
-                type: "string",
-                content: line.slice(2)
-              }
-            ]
-          }
-        }
-      }))
+        }))
+      }
       return slide
     }));
 
@@ -267,15 +281,73 @@ export default function Home() {
     ];
     setPresentationPreviews(waitPresentations); // waiting state
 
+    // FIXME: if the raw text has changed we should re-generate the raw slides
+    let sourceTextSlides = rawTextSlides
+    if (sourceTextSlides.length === 0) {
+      sourceTextSlides = rawText.split("\n\n");
+      console.log("Got raw text slides",sourceTextSlides)
+      setRawTextSlides(sourceTextSlides)
+    }
+
     // get intermediate state
-    let intermediate = await generateIntermediateRepresentation()
-    setIntermediate(intermediate)
-    console.log("Intermediate form ", intermediate)
+    let newIntermediate = await generateIntermediateRepresentation(sourceTextSlides)
+    setIntermediate(newIntermediate)
+    console.log("Intermediate form ", newIntermediate)
     // convert it into an array of single-slide presentations plus notes etc.
-    let presentationPreviews = await convertToPreviews(intermediate)
+    let presentationPreviews = await convertToPreviews(newIntermediate)
     console.log("Presentation previews", presentationPreviews)
 
     setPresentationPreviews(presentationPreviews)
+  };
+
+  const cleanUpSlide = async (slideIndex: number) => {
+    if (!intermediate) return;
+
+    let canvas = await html2canvas(document.querySelector(`[data-slide-number="${slideIndex}"]`) as HTMLElement)
+
+    // Convert canvas to PNG
+    const pngDataUrl = canvas.toDataURL('image/png');
+    
+    // Create a Blob from the data URL
+    const blobBin = atob(pngDataUrl.split(',')[1]);
+    const array = [];
+    for (let i = 0; i < blobBin.length; i++) {
+      array.push(blobBin.charCodeAt(i));
+    }
+    const pngBlob = new Blob([new Uint8Array(array)], {type: 'image/png'});
+
+    // Create a File object from the Blob
+    const pngFile = new File([pngBlob], `slide_${slideIndex}.png`, { type: 'image/png' });
+
+    const formData = new FormData();
+    formData.append('screenshot', pngFile);
+    formData.append('slideIndex', slideIndex.toString());
+    formData.append('rawText', rawTextSlides[slideIndex])
+
+    const response = await fetch("/api/cleanup", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      console.error('Failed to clean up slide');
+      return;
+    }
+
+    const recommendations = (await response.json()).recommendations;
+
+    console.log("Cleanup recommendations are ", recommendations)
+
+    // set the recommendation
+    let newInstructions = instructions
+    newInstructions[slideIndex] = recommendations
+    setInstructions(newInstructions)
+
+    // Regenerate previews
+    let newIntermediate = await generateIntermediateRepresentation()
+    setIntermediate(newIntermediate)
+    const updatedPreviews = await convertToPreviews( newIntermediate );
+    setPresentationPreviews(updatedPreviews);
   };
 
   return (
@@ -295,17 +367,29 @@ export default function Home() {
         <div id="slides">
           {presentationPreviews ? (<div>
             {presentationPreviews.map((ppt: JSX.Element, index) => {
-              return <div key={index} data-slide-number={index}>
-                <Preview slideStyle={{
-                  border: "1px solid black",
-                  marginBottom: "15px",
-                  boxShadow: "0px 0px 10px 0px rgba(0, 0, 0, 0.25)"
+              return <div key={index} style={{ position: 'relative' }}>
+                <div className="previewOnly" data-slide-number={index}>
+                  <Preview slideStyle={{
+                    border: "1px solid black",
+                    marginBottom: "45px",
+                    boxShadow: "0px 0px 10px 0px rgba(0, 0, 0, 0.25)"
+                  }}>
+                    {ppt}
+                  </Preview>
+                </div>
+                <div style={{ 
+                  position: 'absolute', 
+                  bottom: '-42px', 
+                  left: '0', 
+                  right: '0', 
+                  padding: '10px', 
+                  zIndex: 10 
                 }}>
-                  {ppt}
-                </Preview>
-                <div style={{ marginBottom: "10px" }}>
                   <button onClick={() => setActiveNoteIndex(activeNoteIndex === index ? null : index)}>
                     {activeNoteIndex === index ? "Hide Notes" : "Show Notes"}
+                  </button>
+                  <button onClick={() => cleanUpSlide(index)}>
+                    Clean up
                   </button>
                   {activeNoteIndex === index && (
                     <div className="speakerNotesPopup">
