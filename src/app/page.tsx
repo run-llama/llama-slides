@@ -357,7 +357,10 @@ export default function Home() {
           <textarea
             id="rawTextArea"
             value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
+            onChange={(e) => {
+              setRawText(e.target.value)
+              setRawTextSlides([]) // invalidate previous split
+            }}
           ></textarea>
         </div>
         <div id="convertButton">

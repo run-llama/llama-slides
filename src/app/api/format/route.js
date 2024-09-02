@@ -39,7 +39,9 @@ async function manipulateContent(content,formattingInstructions) {
 
   You should respond with only the formatted content, no preamble or explanations are necessary.
 
-  It's possible that because of what will get automatically rendered you shouldn't add anything, in which case you should respond with just the string "NO_EXTRA_CONTENT", especially if there are recommendations in <recommendations> tags below the rawtext that suggest you not add anything.
+  If there are <recommendations> tags below the rawtext, pay attention to what they suggest.
+
+  If you don't want to render anything beyond what will get automatically included, respond with just the string "NO_EXTRA_CONTENT".
 
   <rawtext>
   ${content}
@@ -52,6 +54,8 @@ async function manipulateContent(content,formattingInstructions) {
   }
 
   const response = await llm.complete({prompt: prompt});
+
+  console.log("Formatted content: ", response.text)
 
   return response.text;
 }
