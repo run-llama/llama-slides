@@ -1,94 +1,124 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useState, useCallback } from "react";
+import crypto from 'crypto';
+
+import {
+  Presentation, Slide, Text,
+  Shape, Image, render as renderPptx
+} from "react-pptx"
+import Preview from "react-pptx/preview";
 
 export default function Home() {
+  const [rawText, setRawText] = useState("");
+  const [ppt, setPpt] = useState<JSX.Element | null>(null);
+  const [formatCache] = useState(new Map());
+
+  const hashContent = (content: string): string => {
+    return crypto.createHash('md5').update(content).digest('hex');
+  };
+
+  const formatWithCache = useCallback(async (content: string) => {
+    const contentHash = hashContent(content);
+
+    if (formatCache.has(contentHash)) {
+      return formatCache.get(contentHash);
+    }
+
+    const response = await fetch("/api/format", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ content }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to format content');
+    }
+
+    const formattedContent = (await response.json()).formattedContent;
+    formatCache.set(contentHash, formattedContent);
+
+    return formattedContent;
+  }, [formatCache]);
+
+  const handleConvert = async () => {
+    setPpt(null); // waiting state
+    console.log("converting...")
+    let slides = rawText.split("\n\n");
+
+    let pptSlides = await Promise.all(slides.map(async (slide, index) => {
+      let firstline = slide.split("\n")[0];
+
+      // first slide is a title slide
+      if (index === 0) {
+        return <Slide>
+          <Text style={{
+            x: "10%", y: "20%", w: "80%", h: "40%",
+            fontSize: 80,
+          }}>{firstline}</Text>
+        </Slide>
+      }
+
+      // all other slides follow the same format
+      if (firstline.startsWith("- ")) {
+        firstline = firstline.slice(2);
+      }
+      let formattedContent = await formatWithCache(slide);
+      console.log("Formatted content: ", formattedContent)
+      let pptContent = [
+        <Text style={{
+          x: "10%", y: "10%", w: "80%", h: "80%",
+          fontSize: 40,
+        }}>{firstline}</Text>
+      ]
+      console.log("Here")
+      pptContent.push(formattedContent.split("\n").map((line: string, index: number) => {
+        console.log("Line: ", line)
+        if (line.startsWith("- ")) {
+          return <Text style={{
+            x: "10%", y: `${25 + (10*index)}%`, w: "80%", h: "65%",
+            fontSize: 20,
+          }}><Text.Bullet>{line.slice(2)}</Text.Bullet></Text>
+        } else {
+          return <Text style={{
+            x: "10%", y: `${25 + (10*index)}%`, w: "80%", h: "65%",
+            fontSize: 20,
+          }}>{line}</Text>  
+        }
+      }))
+      let pptSlide = <Slide>{pptContent}</Slide>
+      return pptSlide
+    }));
+
+    let presentation = <Presentation>{pptSlides}</Presentation>
+    setPpt(presentation)
+    console.log(presentation)
+  };
+
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <main>
+      <div id="three-column">
+        <div id="source">
+          <textarea
+            id="rawTextArea"
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+          ></textarea>
         </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+        <div id="convertButton">
+          <button onClick={handleConvert}>Slidify ➡️</button>
+        </div>
+        <div id="slides">
+          <Preview slideStyle={{
+            border: "1px solid black",
+            marginBottom: "15px",
+            boxShadow: "0px 0px 10px 0px rgba(0, 0, 0, 0.25)"
+          }}>
+            {ppt || <div>No slides to display</div>}
+          </Preview>
+        </div>
       </div>
     </main>
   );
