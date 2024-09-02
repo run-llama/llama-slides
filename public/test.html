@@ -1,0 +1,16 @@
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script type="module">
+// 1. Create a new Presentation
+let pres = new PptxGenJS();
+
+// 2. Add a Slide
+let slide = pres.addSlide();
+
+// 3. Add one or more objects (Tables, Shapes, Images, Text and Media) to the Slide
+let textboxText = "Hello World from PptxGenJS!";
+let textboxOpts = { x: 1, y: 1, w: 8, h: 4, color: "363636" };
+slide.addText(textboxText, textboxOpts);
+
+// 4. Save the Presentation
+pres.writeFile();
+</script>

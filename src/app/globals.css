@@ -10,11 +10,16 @@
 }
 
 #convertButton {
-  flex: 0 0 100px;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 10px;
+  gap: 10px;
+  height: 100%;
+}
+
+#convertButton button {
+  width: 100%;
 }
 
 #rawTextArea {
