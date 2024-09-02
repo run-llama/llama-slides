@@ -31,3 +31,10 @@
 #slides {
   overflow-y: scroll;
 }
+
+.speakerNotesPopup {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-top: 5px;
+  background-color: #f9f9f9;
+}

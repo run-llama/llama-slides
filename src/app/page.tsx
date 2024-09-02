@@ -11,16 +11,18 @@ import pptxgen from "pptxgenjs";
 
 export default function Home() {
   const [rawText, setRawText] = useState("");
-  const [intermediate, setIntermediate] = useState();
+  const [intermediate, setIntermediate] = useState<IntermediateType | undefined>(undefined);
   const [presentationPreviews, setPresentationPreviews] = useState<JSX.Element[] | null>(null);
   const [formatCache] = useState(new Map());
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [activeNoteIndex, setActiveNoteIndex] = useState<number | null>(null);
 
   const hashContent = (content: string): string => {
     return crypto.createHash('md5').update(content).digest('hex');
   };
 
-  const convertToPptx = async (intermediate) => {
+  // converts the intermediate representation to pptx
+  const convertToPptx = async (intermediate: { children: any[] }) => {
     let pres = new pptxgen();
     for (let child of intermediate.children) {
       let slide = pres.addSlide()
@@ -43,17 +45,19 @@ export default function Home() {
             )  
         }
       }
+      slide.addNotes(child.speakerNotes)
     }
     return pres
   }
 
+  // this creates the actual file you download
   const generatePptx = async () => {
     if (!intermediate) {
       dialogRef.current?.showModal();
       return;
     }
     let pres = await convertToPptx(intermediate)
-    let presBlob = await pres.write("blob")
+    let presBlob = await pres.write({outputType: "blob"})
 
     const a = document.createElement("a");
     const url = URL.createObjectURL(presBlob as Blob | MediaSource);
@@ -121,24 +125,24 @@ export default function Home() {
       }
 
       // all other slides follow the same format
-      if (firstline.startsWith("- ")) {
-        firstline = firstline.slice(2);
-      }
       let formattedContent = await formatWithCache(slideText);
       console.log("Formatted content: ", formattedContent)
 
-      let slide = {
+      let slide: Slide = {
         type: "slide",
-        children: [] as Record<string, any>[],
-        speakerNotes: slideText
+        children: [] as Record<string, any>[]
       }
 
       // first line is big
+      if (firstline.startsWith("- ") || firstline.startsWith("# ")) {
+        firstline = firstline.slice(2);
+      }
+      let yPosition = 0
       slide.children.push({
         type: "text",
         style: {
           x: 1,
-          y: 0.7,
+          y: yPosition += 0.7,
           w: 8,
           h: 1,
           fontSize: 40
@@ -151,6 +155,35 @@ export default function Home() {
         ]
       })
 
+      // lines with > are meant to be included verbatim
+      let verbatim = slideText.split("\n").filter( (line) => line.startsWith("> "))
+      if (verbatim.length > 0) yPosition += 0.5
+      for (let line of verbatim) {
+        slide.children.push({
+          type: "text",
+          style: {
+            x: 1,
+            y: yPosition += 0.5,
+            w: 8,
+            h: 1,
+            fontSize: 25
+          },
+          children: [
+            {
+              type: "string",
+              content: line.slice(2)
+            }
+          ]
+        })  
+      }
+
+      let speakerNotes = slideText.split("\n").filter( (line, index) => {
+        if (index == 0) return
+        if (line.startsWith("> ")) return
+        return line
+      })
+      slide.speakerNotes = speakerNotes
+
       // subsequent lines are mostly bullet points
       slide.children = slide.children.concat(formattedContent.split("\n").map((line: string, index: number) => {
         console.log("Line: ", line)
@@ -159,7 +192,7 @@ export default function Home() {
             type: "text.bullet",
             style: {
               x: 1,
-              y: 1.4 + (0.7 * index),
+              y: yPosition += 0.5,
               w: 8,
               h: 1,
               fontSize: 20
@@ -176,7 +209,7 @@ export default function Home() {
             type: "text",
             style: {
               x: 1,
-              y: 1.4 + (0.7 * index),
+              y: yPosition += 0.5,
               w: 8,
               h: 1,
               fontSize: 20
@@ -201,7 +234,7 @@ export default function Home() {
     return presentation
   }
 
-  const convertPreviewChildren = (children) => {
+  const convertPreviewChildren = (children: any[]) => {
     return children.map((child) => {
       switch (child.type) {
         // in the previews, each slide is in its own presentation
@@ -217,7 +250,7 @@ export default function Home() {
     })
   }
 
-  const convertToPreviews = async (tree) => {
+  const convertToPreviews = async (tree: { children: any[] }) => {
     return convertPreviewChildren(tree.children)
   }
 
@@ -261,8 +294,8 @@ export default function Home() {
         </div>
         <div id="slides">
           {presentationPreviews ? (<div>
-            {presentationPreviews.map((ppt: JSX.Element) => {
-              return <div>
+            {presentationPreviews.map((ppt: JSX.Element, index) => {
+              return <div key={index} data-slide-number={index}>
                 <Preview slideStyle={{
                   border: "1px solid black",
                   marginBottom: "15px",
@@ -271,7 +304,14 @@ export default function Home() {
                   {ppt}
                 </Preview>
                 <div style={{ marginBottom: "10px" }}>
-                  Notes etc.
+                  <button onClick={() => setActiveNoteIndex(activeNoteIndex === index ? null : index)}>
+                    {activeNoteIndex === index ? "Hide Notes" : "Show Notes"}
+                  </button>
+                  {activeNoteIndex === index && (
+                    <div className="speakerNotesPopup">
+                      {intermediate?.children[index].speakerNotes}
+                    </div>
+                  )}
                 </div>
               </div>
             })}
@@ -286,4 +326,15 @@ export default function Home() {
       </dialog>
     </main>
   );
+}
+
+interface IntermediateType {
+  type: string;
+  children: any[];
+}
+
+interface Slide {
+  type: string;
+  children: Record<string, any>[];
+  speakerNotes?: string[];
 }
