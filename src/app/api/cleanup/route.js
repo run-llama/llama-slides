@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Anthropic } from 'llamaindex';
 import { Anthropic as AnthropicApi } from '@anthropic-ai/sdk';
-import { generateSlidePrompt } from '../../../utils/prompts';
 
 export async function POST(request) {
   try {
@@ -81,24 +80,5 @@ async function manipulateContent(screenshot, slideIndex, rawText) {
 
   // get recommendations about what to do with the screenshot
   let recommendations = analyzeScreenshot(screenshot,rawText)
-
-  /*
-  const llm = new Anthropic({
-    model: 'claude-3-5-sonnet',
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-
-  const additionalInstructions = `
-  
-  You have performed this task before, and the results have been reviewed by you. Take these recommendations into account when generating your new slide content. If there is no room for additional content don't worry about it, just return an empty string.
-
-  <recommendations>
-  ${recommendations}
-  </recommendations>`;
-
-  const prompt = generateSlidePrompt(rawText, additionalInstructions)
-  const response = await llm.complete({prompt: prompt});
-  */
-
   return recommendations;
 }

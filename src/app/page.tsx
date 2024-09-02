@@ -388,7 +388,18 @@ export default function Home() {
                   <button onClick={() => setActiveNoteIndex(activeNoteIndex === index ? null : index)}>
                     {activeNoteIndex === index ? "Hide Notes" : "Show Notes"}
                   </button>
-                  <button onClick={() => cleanUpSlide(index)}>
+                  <button 
+                    onClick={(e) => {
+                      const button = e.target as HTMLButtonElement;
+                      button.disabled = true;
+                      button.textContent = "Cleaning up...";
+                      cleanUpSlide(index).finally(() => {
+                        button.disabled = false;
+                        button.textContent = "Clean up";
+                      });
+                    }}
+                    disabled={false}
+                  >
                     Clean up
                   </button>
                   {activeNoteIndex === index && (
