@@ -13,7 +13,7 @@
     "buble": "^0.20.0",
     "html2canvas": "^1.4.1",
     "llamaindex": "^0.5.20",
-    "next": "14.2.7",
+    "next": "14.2.35",
     "pptxgenjs": "^3.12.0",
     "react": "^18",
     "react-dom": "^18",
